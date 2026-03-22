@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Demo Food Hub - Cloud Sync POS</title>
+    <title>Demo Food Hub - Professional Cloud POS</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
@@ -12,23 +12,33 @@
       import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
       import { getDatabase, ref, set, push, onValue, update, remove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-      // --- PASTE YOUR ACTUAL CONFIG HERE ---
+      // PASTE YOUR SETTINGS HERE FROM FIREBASE CONSOLE
       const firebaseConfig = {
+        apiKey: "YOUR_API_KEY",
+        authDomain: "YOUR_AUTH_DOMAIN",
         databaseURL: "https://restaurants-3604b-default-rtdb.asia-southeast1.firebasedatabase.app",
-        // Get apiKey, authDomain, etc. from Firebase Project Settings
+        projectId: "YOUR_PROJECT_ID",
+        storageBucket: "YOUR_STORAGE_BUCKET",
+        messagingSenderId: "YOUR_SENDER_ID",
+        appId: "YOUR_APP_ID"
       };
 
       const app = initializeApp(firebaseConfig);
       const db = getDatabase(app);
-      window.db = db; window.dbRef = ref; window.dbSet = set; window.dbPush = push; window.dbOnValue = onValue; window.dbUpdate = update; window.dbRemove = remove;
+      
+      // Globalizing Firebase functions so they work with your original onclicks
+      window.db = db; window.dbRef = ref; window.dbSet = set; window.dbPush = push; 
+      window.dbOnValue = onValue; window.dbUpdate = update; window.dbRemove = remove;
     </script>
 
     <style>
         .active-nav { background: #2563eb; color: white; border-radius: 8px; }
         .h-screen-fix { height: 100vh; height: 100dvh; }
-        .kanban-col { height: 100%; min-width: 220px; overflow-y: auto; background: #f1f5f9; padding: 10px; border-radius: 12px; }
+        .kanban-col { height: calc(100vh - 180px); min-width: 220px; overflow-y: auto; background: #f1f5f9; padding: 10px; border-radius: 12px; }
         .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 100; align-items: center; justify-content: center; }
         .show-modal { display: flex; }
+        .dish-btn { transition: all 0.1s; border: 1px solid #e2e8f0; cursor: pointer; }
+        .dish-btn:active { transform: scale(0.95); background: #eff6ff; }
         #toast { transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); transform: translate(-50%, -150%); }
         #toast.show { transform: translate(-50%, 20px); opacity: 1; }
         ::-webkit-scrollbar { width: 4px; }
@@ -37,97 +47,107 @@
 </head>
 <body class="bg-slate-50 flex h-screen-fix overflow-hidden font-sans text-slate-800">
 
-    <!-- CLOUD TOAST -->
+    <!-- TOAST NOTIFICATION -->
     <div id="toast" class="fixed top-0 left-1/2 -translate-x-1/2 z-[200] opacity-0 pointer-events-none">
         <div class="bg-slate-900 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 border border-blue-500/30">
-            <div class="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center animate-pulse"><i class="fa-solid fa-cloud text-[8px]"></i></div>
+            <div class="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center"><i class="fa-solid fa-check text-[10px] text-white"></i></div>
             <span id="toast-msg" class="text-[9px] font-black uppercase tracking-widest italic">Syncing...</span>
         </div>
     </div>
 
-    <!-- SIDEBAR -->
-    <aside class="w-16 md:w-56 bg-slate-900 text-white flex flex-col p-3 shrink-0">
-        <div class="flex flex-col items-center mb-8 border-b border-slate-700 pb-4">
-            <div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center mb-2 shadow-lg ring-2 ring-blue-400">
-                <i class="fa-solid fa-utensils text-white text-lg"></i>
-            </div>
-            <div class="text-[9px] font-black text-white hidden md:block uppercase tracking-widest text-center italic">Demo Food Hub</div>
-        </div>
+    <!-- LEFT NAVBAR (Fixed Sidebar) -->
+    <aside class="w-16 md:w-52 bg-slate-900 text-white flex flex-col p-3 shrink-0">
+        <div class="text-xl font-black text-blue-400 mb-8 italic hidden md:block text-center uppercase">Patel POS</div>
         <nav class="flex flex-col gap-2 flex-1">
-            <button onclick="showView('pos')" id="nav-pos" class="flex items-center justify-center md:justify-start gap-3 p-3 active-nav"><i class="fa-solid fa-plus-square text-lg"></i> <span class="hidden md:block text-[10px] font-black uppercase tracking-widest">Take Order</span></button>
-            <button onclick="showView('kitchen')" id="nav-kitchen" class="flex items-center justify-center md:justify-start gap-3 p-3 text-slate-400"><i class="fa-solid fa-fire-burner text-lg"></i> <span class="hidden md:block text-[10px] font-black uppercase tracking-widest">Kitchen TV</span></button>
-            <button onclick="showView('billing')" id="nav-billing" class="flex items-center justify-center md:justify-start gap-3 p-3 text-slate-400"><i class="fa-solid fa-receipt text-lg"></i> <span class="hidden md:block text-[10px] font-black uppercase tracking-widest">Billing</span></button>
-            <button onclick="showView('menu-man')" id="nav-menu-man" class="flex items-center justify-center md:justify-start gap-3 p-3 text-slate-400"><i class="fa-solid fa-list-check text-lg"></i> <span class="hidden md:block text-[10px] font-black uppercase tracking-widest">Menu Manager</span></button>
-            <button onclick="showView('insights')" id="nav-insights" class="flex items-center justify-center md:justify-start gap-3 p-3 text-slate-400"><i class="fa-solid fa-chart-line text-lg"></i> <span class="hidden md:block text-[10px] font-black uppercase tracking-widest">Insights</span></button>
+            <button onclick="showView('pos')" id="nav-pos" class="flex items-center justify-center md:justify-start gap-3 p-3 active-nav">
+                <i class="fa-solid fa-plus-square text-lg"></i> <span class="hidden md:block text-[10px] font-black uppercase tracking-widest">Order</span>
+            </button>
+            <button onclick="showView('kitchen')" id="nav-kitchen" class="flex items-center justify-center md:justify-start gap-3 p-3 text-slate-400">
+                <i class="fa-solid fa-fire-burner text-lg"></i> <span class="hidden md:block text-[10px] font-black uppercase tracking-widest">Kitchen</span>
+            </button>
+            <button onclick="showView('billing')" id="nav-billing" class="flex items-center justify-center md:justify-start gap-3 p-3 text-slate-400">
+                <i class="fa-solid fa-receipt text-lg"></i> <span class="hidden md:block text-[10px] font-black uppercase tracking-widest">Billing</span>
+            </button>
+            <button onclick="showView('menu-man')" id="nav-menu-man" class="flex items-center justify-center md:justify-start gap-3 p-3 text-slate-400">
+                <i class="fa-solid fa-utensils text-lg"></i> <span class="hidden md:block text-[10px] font-black uppercase tracking-widest">Menu</span>
+            </button>
+            <button onclick="showView('insights')" id="nav-insights" class="flex items-center justify-center md:justify-start gap-3 p-3 text-slate-400">
+                <i class="fa-solid fa-chart-line text-lg"></i> <span class="hidden md:block text-[10px] font-black uppercase tracking-widest">Insights</span>
+            </button>
         </nav>
     </aside>
 
-    <main class="flex-1 flex flex-col overflow-hidden relative">
-        <header class="h-12 bg-white border-b px-4 flex items-center justify-between shadow-sm">
+    <!-- MAIN AREA -->
+    <main class="flex-1 flex flex-col overflow-hidden">
+        <header class="h-12 bg-white border-b px-6 flex items-center justify-between shadow-sm">
             <div class="flex items-center gap-2">
                 <span id="cloud-status" class="w-2 h-2 bg-slate-300 rounded-full"></span>
-                <h2 id="view-title" class="text-[10px] font-black text-slate-500 uppercase tracking-widest italic">DEMO FOOD HUB</h2>
+                <h2 id="view-title" class="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">DEMO FOOD HUB</h2>
             </div>
-            <div class="font-black text-blue-600 text-xs italic">Live Rev: ₹<span id="header-rev">0</span></div>
+            <div class="font-black text-blue-600 text-sm italic">Daily Revenue: ₹<span id="header-rev">0</span></div>
         </header>
 
         <!-- VIEW: POS -->
         <section id="view-pos" class="flex flex-col lg:flex-row flex-1 overflow-hidden">
-            <div class="flex-1 p-3 overflow-y-auto grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2 content-start" id="menu-grid"></div>
-            <div class="w-full lg:w-72 border-t lg:border-t-0 lg:border-l bg-white flex flex-col h-1/2 lg:h-full shadow-lg">
-                <div class="p-2 bg-slate-50 border-b font-black text-[9px] text-slate-400 uppercase flex justify-between items-center"><span>Active Cart</span><button onclick="clearCart()" class="text-red-400 text-[8px] border px-2 rounded">Clear</button></div>
+            <div class="flex-1 p-4 overflow-y-auto grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2 content-start" id="menu-grid"></div>
+            <div class="w-full lg:w-64 border-t lg:border-t-0 lg:border-l bg-white flex flex-col h-72 lg:h-full shadow-xl">
+                <div class="p-3 bg-slate-50 border-b font-black text-[9px] text-slate-400 uppercase flex justify-between">
+                    <span>Cart</span><button onclick="clearCart()" class="text-red-400 text-[8px] border px-2 rounded">Reset</button>
+                </div>
                 <div id="cart-list" class="flex-1 overflow-y-auto p-2 space-y-1"></div>
-                <div class="p-3 border-t bg-white"><div class="flex justify-between font-black text-sm mb-2 uppercase"><span>Total</span><span>₹<span id="cart-total">0</span></span></div><button onclick="openTableModal()" class="w-full bg-slate-900 text-white py-3 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-md">Select Table</button></div>
+                <div class="p-3 border-t">
+                    <div class="flex justify-between font-black text-sm mb-3 uppercase"><span>Total</span><span>₹<span id="cart-total">0</span></span></div>
+                    <button onclick="openTableModal()" class="w-full bg-slate-900 text-white py-3 rounded font-black text-[10px] uppercase tracking-widest shadow-md">Select Table</button>
+                </div>
             </div>
         </section>
 
-        <!-- KITCHEN TV -->
-        <section id="view-kitchen" class="hidden flex-1 p-3 overflow-x-auto bg-slate-200">
-            <div class="flex gap-3 h-full pb-4">
-                <div class="flex-1"><p class="text-[9px] font-black mb-1 text-slate-500 text-center uppercase tracking-widest">Pending</p><div id="col-pending" class="kanban-col space-y-2"></div></div>
-                <div class="flex-1"><p class="text-[9px] font-black mb-1 text-slate-500 text-center uppercase tracking-widest">Cooking</p><div id="col-preparing" class="kanban-col space-y-2"></div></div>
-                <div class="flex-1"><p class="text-[9px] font-black mb-1 text-slate-500 text-center uppercase tracking-widest">Ready</p><div id="col-ready" class="kanban-col space-y-2"></div></div>
-                <div class="flex-1 opacity-50"><p class="text-[9px] font-black mb-1 text-slate-500 text-center uppercase tracking-widest">Served</p><div id="col-served" class="kanban-col space-y-2"></div></div>
+        <!-- VIEW: KITCHEN TV -->
+        <section id="view-kitchen" class="hidden flex-1 p-4 overflow-x-auto bg-slate-200">
+            <div class="flex gap-4 h-full">
+                <div class="flex-1"><p class="text-[9px] font-black mb-2 text-slate-500 uppercase text-center">Pending</p><div id="col-pending" class="kanban-col space-y-2"></div></div>
+                <div class="flex-1"><p class="text-[9px] font-black mb-2 text-slate-500 uppercase text-center">Cooking</p><div id="col-preparing" class="kanban-col space-y-2"></div></div>
+                <div class="flex-1"><p class="text-[9px] font-black mb-2 text-slate-500 uppercase text-center">Ready</p><div id="col-ready" class="kanban-col space-y-2"></div></div>
+                <div class="flex-1 opacity-50"><p class="text-[9px] font-black mb-2 text-slate-500 uppercase text-center">Served</p><div id="col-served" class="kanban-col space-y-2"></div></div>
             </div>
         </section>
 
-        <!-- BILLING -->
+        <!-- VIEW: BILLING -->
         <section id="view-billing" class="hidden flex-1 p-4 lg:p-8 flex flex-col lg:flex-row gap-6 overflow-y-auto bg-slate-50">
             <div class="w-full lg:w-64 space-y-2" id="bill-table-list"></div>
-            <div id="bill-panel" class="flex-1 bg-white border rounded-3xl p-8 shadow-sm flex items-center justify-center text-slate-300 italic">Select table from left</div>
+            <div id="bill-panel" class="flex-1 bg-white border rounded-2xl p-8 shadow-sm flex items-center justify-center text-slate-300 italic">Select table</div>
         </section>
 
-        <!-- INSIGHTS -->
-        <section id="view-insights" class="hidden flex-1 p-6 overflow-y-auto bg-white">
-            <div class="bg-slate-900 text-white p-6 rounded-2xl mb-6 shadow-xl border border-blue-500/20"><p class="text-[10px] font-bold opacity-50 uppercase tracking-widest tracking-widest">Cloud Earnings Today</p><h1 class="text-4xl font-black italic text-blue-400">₹<span id="ins-total">0</span></h1></div>
-            <table class="w-full text-left text-[9px] bg-slate-50 rounded-xl overflow-hidden shadow-sm"><thead class="bg-slate-200 font-black"><tr><th class="p-4 uppercase">Table</th><th class="p-4 uppercase">Dish Summary</th><th class="p-4 uppercase">Total Bill</th></tr></thead><tbody id="settle-history"></tbody></table>
+        <!-- VIEW: INSIGHTS -->
+        <section id="view-insights" class="hidden flex-1 p-8 overflow-y-auto bg-white">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+                <div class="bg-blue-600 text-white p-6 rounded-2xl shadow-lg"><p class="text-[10px] font-bold opacity-70 uppercase tracking-widest">Total Collection</p><h1 class="text-4xl font-black italic">₹<span id="ins-total">0</span></h1></div>
+                <div class="bg-white border p-6 rounded-2xl"><p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Tax (GST 5%)</p><h1 class="text-4xl font-black text-green-600">₹<span id="ins-gst">0</span></h1></div>
+                <div class="bg-white border p-6 rounded-2xl"><p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Bills Settled</p><h1 class="text-4xl font-black" id="ins-count">0</h1></div>
+            </div>
+            <table class="w-full text-left text-[10px] bg-slate-50 rounded-xl"><thead class="bg-slate-200 font-black text-slate-600"><tr><th class="p-4">Table</th><th class="p-4">Dishes</th><th class="p-4">Total Paid</th></tr></thead><tbody id="settle-history"></tbody></table>
         </section>
 
-        <!-- MENU MANAGER -->
-        <section id="view-menu-man" class="hidden flex-1 p-4 overflow-y-auto bg-white">
-            <div class="bg-slate-50 p-4 rounded-xl border mb-8 max-w-md"><p class="text-[9px] font-black text-slate-400 uppercase mb-3 italic">Add New Dish to Cloud</p><div class="flex gap-2"><input id="new-name" type="text" placeholder="Dish Name" class="flex-1 p-2 text-xs border rounded-lg focus:outline-blue-500"><input id="new-price" type="number" placeholder="₹" class="w-20 p-2 text-xs border rounded-lg focus:outline-blue-500"><button onclick="addNewDishToCloud()" class="bg-blue-600 text-white px-5 rounded-lg font-black text-xs">+</button></div></div>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3" id="menu-edit-list"></div>
+        <!-- VIEW: MENU MANAGER -->
+        <section id="view-menu-man" class="hidden flex-1 p-8">
+            <div class="bg-white p-4 rounded-xl border max-w-sm mb-6 shadow-sm"><p class="text-[9px] font-black text-slate-400 uppercase mb-3 tracking-widest">Add New Dish to Cloud</p><div class="flex gap-2"><input id="new-name" type="text" placeholder="Dish Name" class="border p-2 rounded flex-1 text-xs"><input id="new-price" type="number" placeholder="₹" class="border p-2 rounded w-16 text-xs"><button onclick="addNewDishToCloud()" class="bg-blue-600 text-white px-4 rounded font-black text-[10px]">+</button></div></div>
+            <div id="full-menu-list" class="grid grid-cols-2 md:grid-cols-4 gap-2"></div>
         </section>
     </main>
 
-    <!-- MODAL -->
+    <!-- TABLE MODAL -->
     <div id="table-modal" class="modal">
         <div class="bg-white p-6 rounded-3xl shadow-2xl w-full max-w-xs mx-4">
-            <h4 class="text-center font-black text-[10px] mb-4 text-slate-400 uppercase tracking-widest italic tracking-widest">Select Table</h4>
+            <h4 class="text-center font-black text-[10px] mb-4 text-slate-400 uppercase tracking-widest italic">Assign Table</h4>
             <div class="grid grid-cols-3 gap-2" id="modal-table-grid"></div>
-            <button onclick="closeModal()" class="w-full mt-6 text-slate-400 text-[10px] font-bold uppercase tracking-widest">Cancel</button>
+            <button onclick="closeModal()" class="w-full mt-6 text-slate-400 text-[10px] font-bold uppercase">Cancel</button>
         </div>
     </div>
 
     <script type="module">
-        // GLOBAL DATA SYNC
-        let menuItems = [];
-        let activeOrders = [];
-        let dailyHistory = [];
-        let totalRevenue = 0;
-        let cart = [];
+        // GLOBAL STATE
+        let menuItems = []; let activeOrders = []; let dailyHistory = []; let cart = [];
 
-        // TOAST SYSTEM
         const triggerToast = (msg) => {
             const toast = document.getElementById('toast');
             document.getElementById('toast-msg').innerText = msg;
@@ -137,32 +157,30 @@
 
         // --- CLOUD SYNC LOGIC ---
         window.addEventListener('load', () => {
-            const db = window.db;
+            if (!window.db) {
+                console.error("Firebase not initialized. Check your Config!");
+                return;
+            }
             document.getElementById('cloud-status').className = "w-2 h-2 bg-green-500 rounded-full animate-pulse";
 
-            // 1. Listen for Menu Changes
-            window.dbOnValue(window.dbRef(db, 'menu'), (snapshot) => {
-                const data = snapshot.val();
-                menuItems = data ? Object.values(data) : [];
-                renderPOS();
-                if(document.getElementById('view-menu-man').className !== 'hidden') renderMenuEditList();
+            // Listen for Menu
+            window.dbOnValue(window.dbRef(window.db, 'menu'), (snap) => {
+                menuItems = snap.val() ? Object.values(snap.val()) : [];
+                renderPOS(); if(!document.getElementById('view-menu-man').classList.contains('hidden')) renderMenuMan();
             });
 
-            // 2. Listen for Orders
-            window.dbOnValue(window.dbRef(db, 'orders'), (snapshot) => {
-                const data = snapshot.val();
-                activeOrders = data ? Object.entries(data).map(([id, val]) => ({ id, ...val })) : [];
-                renderKitchen();
-                renderBilling();
+            // Listen for Orders
+            window.dbOnValue(window.dbRef(window.db, 'orders'), (snap) => {
+                activeOrders = snap.val() ? Object.entries(snap.val()).map(([id, v]) => ({ id, ...v })) : [];
+                renderKitchen(); renderBilling();
             });
 
-            // 3. Listen for History & Revenue
-            window.dbOnValue(window.dbRef(db, 'history'), (snapshot) => {
-                const data = snapshot.val();
-                dailyHistory = data ? Object.values(data) : [];
-                totalRevenue = dailyHistory.reduce((s, o) => s + o.total, 0);
-                document.getElementById('header-rev').innerText = totalRevenue;
-                document.getElementById('ins-total').innerText = totalRevenue;
+            // Listen for History
+            window.dbOnValue(window.dbRef(window.db, 'history'), (snap) => {
+                dailyHistory = snap.val() ? Object.values(snap.val()) : [];
+                const rev = dailyHistory.reduce((s,o)=>s+o.total, 0);
+                document.getElementById('header-rev').innerText = rev;
+                document.getElementById('ins-total').innerText = rev;
                 renderInsights();
             });
         });
@@ -172,91 +190,50 @@
             const name = document.getElementById('new-name').value;
             const price = parseInt(document.getElementById('new-price').value);
             if(!name || !price) return;
-            const newDishRef = window.dbPush(window.dbRef(window.db, 'menu'));
-            window.dbSet(newDishRef, { name, price });
-            document.getElementById('new-name').value = '';
-            document.getElementById('new-price').value = '';
+            window.dbSet(window.dbPush(window.dbRef(window.db, 'menu')), { name, price });
+            document.getElementById('new-name').value = ''; document.getElementById('new-price').value = '';
             triggerToast("Menu Updated!");
         };
 
         window.removeDishFromCloud = (name) => {
-            window.dbOnValue(window.dbRef(window.db, 'menu'), (snapshot) => {
-                const data = snapshot.val();
-                for (let id in data) {
-                    if (data[id].name === name) {
-                        window.dbRemove(window.dbRef(window.db, `menu/${id}`));
-                        triggerToast("Dish Removed!");
-                        break;
-                    }
-                }
+            window.dbOnValue(window.dbRef(window.db, 'menu'), (snap) => {
+                const data = snap.val();
+                for (let id in data) if (data[id].name === name) window.dbRemove(window.dbRef(window.db, `menu/${id}`));
             }, { onlyOnce: true });
         };
 
         window.placeOrder = (tNo) => {
-            if(!cart.length) return;
             const tName = `T${tNo}`;
-            const newOrderRef = window.dbPush(window.dbRef(window.db, 'orders'));
-            window.dbSet(newOrderRef, { 
-                table: tName, 
-                items: cart, 
-                status: 'pending', 
-                timestamp: Date.now() 
-            });
-            cart = []; updateCart(); closeModal();
-            triggerToast(`${tName} Order Placed!`);
+            window.dbSet(window.dbPush(window.dbRef(window.db, 'orders')), { table:tName, items:cart, status:'pending' });
+            cart=[]; updateCart(); closeModal(); triggerToast(`Order Sent for ${tName}!`);
         };
 
-        window.nextStatus = (orderId, currentStatus) => {
-            const flow = { pending: 'preparing', preparing: 'ready', ready: 'served' };
-            const next = flow[currentStatus];
-            window.dbUpdate(window.dbRef(window.db, `orders/${orderId}`), { status: next });
-            triggerToast("Kitchen Updated!");
+        window.nextStatus = (id, cur) => {
+            const next = {pending:'preparing', preparing:'ready', ready:'served'}[cur];
+            window.dbUpdate(window.dbRef(window.db, `orders/${id}`), { status: next });
         };
 
         window.settle = (tName) => {
-            const tableOrders = activeOrders.filter(o => o.table === tName && o.status === 'served');
-            let mergedItems = []; 
-            tableOrders.forEach(o => mergedItems.push(...o.items));
-            const total = Math.round(mergedItems.reduce((s, i) => s + i.price, 0) * 1.05);
+            const tables = activeOrders.filter(o => o.table === tName && o.status === 'served');
+            let items = []; tables.forEach(o => items.push(...o.items));
+            const total = Math.round(items.reduce((s,i)=>s+i.price, 0) * 1.05);
 
-            // Add to Cloud History
-            const historyRef = window.dbPush(window.dbRef(window.db, 'history'));
-            window.dbSet(historyRef, { 
-                table: tName, 
-                summary: mergedItems.map(i => i.name).join(', '), 
-                total: total, 
-                time: new Date().toLocaleTimeString() 
-            });
-
-            // Remove Served Orders for this table
-            tableOrders.forEach(o => {
-                window.dbRemove(window.dbRef(window.db, `orders/${o.id}`));
-            });
-
-            document.getElementById('bill-panel').innerHTML = `<div class="text-green-500 font-black text-xl italic text-center">Cloud Settled ✓</div>`;
-            triggerToast(`${tName} Table Reset!`);
+            window.dbSet(window.dbPush(window.dbRef(window.db, 'history')), { table:tName, items:items.map(i=>i.name).join(', '), total:total });
+            tables.forEach(o => window.dbRemove(window.dbRef(window.db, `orders/${o.id}`)));
+            triggerToast("Table Settled!");
         };
 
         // --- RENDERERS ---
         function renderPOS() {
-            document.getElementById('menu-grid').innerHTML = menuItems.map((m,i)=>`
-                <div onclick="addToCart('${m.name}', ${m.price})" class="dish-btn bg-white p-3 rounded-xl text-center shadow-sm">
+            document.getElementById('menu-grid').innerHTML = menuItems.map(m=>`
+                <div onclick="addToCart('${m.name}', ${m.price})" class="dish-btn bg-white p-3 rounded-lg text-center shadow-sm">
                     <p class="font-bold text-[9px] uppercase h-6 overflow-hidden mb-1">${m.name}</p>
                     <p class="text-blue-600 font-black text-xs">₹${m.price}</p>
                 </div>`).join('');
         }
-
-        function renderMenuEditList() {
-            document.getElementById('menu-edit-list').innerHTML = menuItems.map(m => `
-                <div class="bg-white p-3 rounded-xl border flex justify-between items-center shadow-sm">
-                    <div><p class="font-black text-xs uppercase">${m.name}</p><p class="text-[10px] text-blue-600 font-bold italic">₹${m.price}</p></div>
-                    <button onclick="removeDishFromCloud('${m.name}')" class="text-slate-300 hover:text-red-500 p-2"><i class="fa-solid fa-trash-can"></i></button>
-                </div>`).join('');
-        }
-
         window.addToCart = (name, price) => { cart.push({name, price}); updateCart(); };
         function updateCart() {
-            document.getElementById('cart-list').innerHTML = cart.map(c=>`<div class="flex justify-between p-1.5 border-b text-[9px] font-black bg-white rounded mb-1"><span>${c.name}</span><span>₹${c.price}</span></div>`).join('');
+            document.getElementById('cart-list').innerHTML = cart.map(c=>`<div class="flex justify-between p-1 border-b text-[9px] font-black bg-white rounded mb-1"><span>${c.name}</span><span>₹${c.price}</span></div>`).join('');
             document.getElementById('cart-total').innerText = cart.reduce((s,i)=>s+i.price, 0);
         }
         window.clearCart = () => { cart = []; updateCart(); };
@@ -266,17 +243,16 @@
             document.getElementById('view-'+v).classList.remove('hidden');
             document.querySelectorAll('nav button').forEach(b => b.classList.remove('active-nav'));
             document.getElementById('nav-'+v).classList.add('active-nav');
-            document.getElementById('view-title').innerText = "CLOUD HUB | " + v.toUpperCase();
+            document.getElementById('view-title').innerText = "DEMO HUB | " + v.toUpperCase();
         }
 
         function renderKitchen() {
-            const cols = ['pending', 'preparing', 'ready', 'served'];
-            cols.forEach(id => document.getElementById('col-'+id).innerHTML = '');
+            ['pending','preparing','ready','served'].forEach(id => document.getElementById('col-'+id).innerHTML = '');
             activeOrders.forEach(o => {
                 const card = document.createElement('div');
                 card.className = "bg-white p-3 rounded-xl border-l-4 border-blue-600 shadow-sm text-[10px]";
-                card.innerHTML = `<div class="font-black mb-1 uppercase italic">${o.table}</div><p class="text-slate-400 font-bold mb-3 uppercase tracking-tighter">${o.items.map(i=>i.name).join(', ')}</p>
-                    ${o.status!=='served' ? `<button onclick="nextStatus('${o.id}', '${o.status}')" class="w-full bg-slate-900 text-white p-2 rounded-lg font-black text-[9px] uppercase tracking-widest">Push Next</button>` : '<b class="text-green-500 italic">Served ✓</b>'}`;
+                card.innerHTML = `<div class="font-black mb-1 uppercase">${o.table}</div><p class="text-slate-400 font-bold mb-3 uppercase tracking-tighter">${o.items.map(i=>i.name).join(', ')}</p>
+                    ${o.status!=='served' ? `<button onclick="nextStatus('${o.id}', '${o.status}')" class="w-full bg-slate-900 text-white p-2 rounded-lg font-black text-[9px] uppercase tracking-widest">Push</button>` : '<b class="text-green-600 italic">Served ✓</b>'}`;
                 document.getElementById('col-'+o.status).appendChild(card);
             });
         }
@@ -284,27 +260,33 @@
         function renderBilling() {
             const list = document.getElementById('bill-table-list');
             const served = activeOrders.filter(o => o.status === 'served');
-            const uniqueTables = [...new Set(served.map(o => o.table))];
-            if(!uniqueTables.length) return list.innerHTML = "<p class='text-[10px] text-slate-300 italic py-10 text-center font-black uppercase tracking-widest'>No Live Bills</p>";
-            list.innerHTML = uniqueTables.map(t => `<button onclick="showBill('${t}')" class="w-full bg-white border-2 border-transparent p-4 rounded-xl text-left font-black text-xs hover:border-blue-500 shadow-sm transition"><i class="fa-solid fa-receipt text-blue-500 mr-2"></i> ${t} CLOUD INVOICE</button>`).join('');
+            const unique = [...new Set(served.map(o => o.table))];
+            if(!unique.length) return list.innerHTML = "<p class='text-[10px] text-slate-300 italic py-10 text-center font-black uppercase tracking-widest'>No Bills</p>";
+            list.innerHTML = unique.map(t => `<button onclick="showBill('${t}')" class="w-full bg-white border p-4 rounded-xl text-left font-black text-xs hover:border-blue-500 shadow-sm transition">${t} MERGED BILL</button>`).join('');
         }
 
         window.showBill = (tName) => {
-            const tableOrders = activeOrders.filter(o => o.table === tName && o.status === 'served');
-            let items = []; tableOrders.forEach(o => items.push(...o.items));
+            const tables = activeOrders.filter(o => o.table === tName && o.status === 'served');
+            let items = []; tables.forEach(o => items.push(...o.items));
             const sub = items.reduce((s,i)=>s+i.price, 0); const gst = Math.round(sub * 0.05);
             document.getElementById('bill-panel').innerHTML = `
                 <div class="w-full max-w-sm bg-white p-8 rounded-3xl shadow-xl border">
-                    <h3 class="text-xl font-black mb-1 text-blue-600 text-center italic tracking-widest">Demo Cloud Hub</h3>
-                    <p class="text-[9px] font-black text-slate-400 mb-6 uppercase tracking-widest text-center">${tName} Final Bill</p>
+                    <h3 class="text-xl font-black mb-1 text-blue-600 text-center italic">Demo Cloud Hub</h3>
+                    <p class="text-[9px] font-black text-slate-400 mb-6 uppercase tracking-widest text-center">${tName} Bill</p>
                     <div class="space-y-1 mb-6 border-b pb-4 max-h-32 overflow-y-auto">${items.map(i=>`<div class="flex justify-between text-[11px] font-bold"><span>${i.name}</span><span>₹${i.price}</span></div>`).join('')}</div>
                     <div class="text-right text-[10px] mb-8 font-black text-slate-400 uppercase tracking-widest"><p>Sub: ₹${sub}</p><p>Tax: ₹${gst}</p><h2 class="text-3xl font-black text-blue-600 mt-2 italic tracking-tighter">Total: ₹${sub+gst}</h2></div>
-                    <button onclick="settle('${tName}')" class="w-full bg-slate-900 text-white p-4 rounded-2xl font-black text-[10px] uppercase shadow-lg hover:bg-black transition">Pay & Reset Table</button>
+                    <button onclick="settle('${tName}')" class="w-full bg-slate-900 text-white p-4 rounded-2xl font-black text-[10px] uppercase shadow-lg hover:bg-black transition">Settle Bill</button>
                 </div>`;
         }
 
         function renderInsights() {
-            document.getElementById('settle-history').innerHTML = dailyHistory.map(h => `<tr class="border-b"><td class="p-4 font-black italic uppercase">${h.table}</td><td class="p-4 text-slate-400 font-bold uppercase tracking-tighter">${h.summary}</td><td class="p-4 font-black text-blue-600 italic">₹${h.total}</td></tr>`).reverse().join('');
+            document.getElementById('ins-gst').innerText = Math.round(dailyHistory.reduce((s,o)=>s+o.total,0) * 0.05);
+            document.getElementById('ins-count').innerText = dailyHistory.length;
+            document.getElementById('settle-history').innerHTML = dailyHistory.map(h => `<tr class="border-b"><td class="p-4 font-black italic uppercase">${h.table}</td><td class="p-4 text-slate-400 font-bold uppercase tracking-tighter">${h.items}</td><td class="p-4 font-black text-blue-600 italic">₹${h.total}</td></tr>`).reverse().join('');
+        }
+
+        window.renderMenuMan = () => {
+            document.getElementById('full-menu-list').innerHTML = menuItems.map(m=>`<div class="bg-white p-3 rounded-xl border flex justify-between text-[10px] font-black uppercase italic"><span>${m.name}</span><div class="flex items-center gap-4"><span class="text-blue-600 font-black text-xs">₹${m.price}</span><button onclick="removeDishFromCloud('${m.name}')" class="text-red-400"><i class="fa-solid fa-trash-can"></i></button></div></div>`).join('');
         }
 
         window.openTableModal = () => {
